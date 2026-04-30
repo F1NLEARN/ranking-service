@@ -15,10 +15,10 @@ spring:
     consumer:
       group-id: ranking-service
       auto-offset-reset: earliest
-    data:
-      redis:
-        host: finlearn-redis
-        port: 6379
+  data:
+    redis:
+      host: finlearn-redis
+      port: 6379
 
 eureka:
   instance:
