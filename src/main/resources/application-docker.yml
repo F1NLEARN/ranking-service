@@ -10,6 +10,15 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: false
+  kafka:
+    bootstrap-servers: finlearn-kafka:9092
+    consumer:
+      group-id: ranking-service
+      auto-offset-reset: earliest
+    data:
+      redis:
+        host: finlearn-redis
+        port: 6379
 
 eureka:
   instance:
