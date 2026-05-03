@@ -1,10 +1,9 @@
 package com.finlearn.rankingservice.presentation;
 
 import com.finlearn.rankingservice.application.RankingService;
-import com.finlearn.rankingservice.application.dto.LeaderboardDto;
+import com.finlearn.rankingservice.application.dto.*;
 import com.finlearn.rankingservice.domain.vo.RankingType;
-import com.finlearn.rankingservice.presentation.dto.response.RankingEntryResponse;
-import com.finlearn.rankingservice.presentation.dto.response.RankingListResponse;
+import com.finlearn.rankingservice.presentation.dto.response.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -19,7 +18,7 @@ public class RankingController {
 
     /**
      * GET /api/v1/rankings/seasons/{seasonId}
-     * 시즌 랭킹 조회 (인증 불필요)
+     * 시즌 랭킹 조회
      */
     @GetMapping("/seasons/{seasonId}")
     public RankingListResponse getLeaderboard(
@@ -30,6 +29,34 @@ public class RankingController {
     ) {
         LeaderboardDto dto = rankingService.getLeaderboard(seasonId, type, page, size);
         return toRankingListResponse(dto);
+    }
+
+    /**
+     * GET /api/v1/rankings/seasons/{seasonId}/me
+     * 나의 모든 타입 랭킹 조회
+     */
+    @GetMapping("/seasons/{seasonId}/me")
+    public MyRankingResponse getMyRankings(
+            @PathVariable UUID seasonId,
+            @RequestHeader("X-User-Id") UUID userId
+    ) {
+        MyRankingDto dto = rankingService.getMyRankings(seasonId, userId);
+        return toMyRankingResponse(dto);
+    }
+
+    /**
+     * GET /api/v1/rankings/badges/me
+     * 나의 랭킹 뱃지 목록 조회
+     */
+    @GetMapping("/badges/me")
+    public List<RankingBadgeResponse> getMyBadges(
+            @RequestHeader("X-User-Id") UUID userId,
+            @RequestParam(required = false) UUID seasonId
+    ) {
+        return rankingService.getMyBadges(userId, seasonId)
+                .stream()
+                .map(RankingBadgeResponse::from)
+                .toList();
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -47,5 +74,12 @@ public class RankingController {
                 dto.getTotalCount(),
                 dto.getPage(),
                 dto.getSize());
+    }
+
+    private MyRankingResponse toMyRankingResponse(MyRankingDto dto) {
+        List<MyRankingEntry> entries = dto.getRankings().stream()
+                .map(e -> new MyRankingEntry(e.getRankingType(), e.getRank(), e.getScore()))
+                .toList();
+        return new MyRankingResponse(dto.getSeasonId(), dto.getUserId(), entries);
     }
 }
