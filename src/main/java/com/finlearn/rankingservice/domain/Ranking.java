@@ -58,7 +58,7 @@ public class Ranking extends BaseEntity {
     @Column(name = "ranking_type", nullable = false, length = 20)
     private RankingType rankingType;
 
-    @Column(name = "score", precision = 10, scale = 4)
+    @Column(name = "score", precision = 10, scale = 4, nullable = false)
     private BigDecimal score;
 
     @Column(name = "last_updated_at")
@@ -96,8 +96,8 @@ public class Ranking extends BaseEntity {
         this.lastUpdatedAt = LocalDateTime.now();
     }
 
-    // 시즌 종료 시 최종 확정
-    public void finalize(int finalRank, BigDecimal finalScore) {
+    // 시즌 종료 시 최종 순위와 점수를 확정
+    public void confirmSeason(int finalRank, BigDecimal finalScore) {
         this.rank = finalRank;
         this.score = finalScore;
         this.lastUpdatedAt = LocalDateTime.now();

@@ -79,8 +79,10 @@ public class RankingRedisRepository {
     public void initializeSeason(UUID seasonId) {
         for (RankingType type : RankingType.values()) {
             String key = buildKey(seasonId, type);
-            // 키가 존재하면 삭제 후 빈 상태로 시작
-            stringRedisTemplate.delete(key);
+            if (Boolean.TRUE.equals(stringRedisTemplate.hasKey(key))) {
+                throw new IllegalStateException(
+                        "이미 진행 중인 시즌 키가 존재합니다. 중복 초기화 요청을 확인하세요: " + key);
+            }
         }
     }
 

@@ -4,6 +4,7 @@ import com.finlearn.rankingservice.domain.Ranking;
 import com.finlearn.rankingservice.domain.vo.RankingType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,11 +18,10 @@ public interface RankingRepository {
 
     Page<Ranking> findAllBySeasonIdAndRankingTypeOrderByRankAsc(UUID seasonId, RankingType rankingType, Pageable pageable);
 
-    List<Ranking> findAllByUserId(UUID userId);
-
     boolean existsBySeasonIdAndRankNotNull(UUID seasonId);
 
     Ranking save(Ranking ranking);
 
-    List<Ranking> saveAll(List<Ranking> rankings);
+    // 유저 프로필 일괄 갱신: 벌크 업데이트
+    int bulkUpdateUserProfile(UUID userId, String nickname, String profileImage);
 }

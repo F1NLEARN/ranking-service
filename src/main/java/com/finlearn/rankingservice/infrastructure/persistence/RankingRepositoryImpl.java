@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,11 +34,6 @@ public class RankingRepositoryImpl implements RankingRepository {
     }
 
     @Override
-    public List<Ranking> findAllByUserId(UUID userId) {
-        return rankingJpaRepository.findAllByUserId(userId);
-    }
-
-    @Override
     public boolean existsBySeasonIdAndRankNotNull(UUID seasonId) {
         return rankingJpaRepository.existsBySeasonIdAndRankNotNull(seasonId);
     }
@@ -48,7 +44,7 @@ public class RankingRepositoryImpl implements RankingRepository {
     }
 
     @Override
-    public List<Ranking> saveAll(List<Ranking> rankings) {
-        return rankingJpaRepository.saveAll(rankings);
+    public int bulkUpdateUserProfile(UUID userId, String nickname, String profileImage) {
+        return rankingJpaRepository.bulkUpdateUserProfile(userId, nickname, profileImage);
     }
 }

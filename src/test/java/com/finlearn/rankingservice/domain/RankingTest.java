@@ -84,31 +84,31 @@ class RankingTest {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // finalize
+    // confirmSeason
     // ─────────────────────────────────────────────────────────────
 
     @Nested
-    @DisplayName("finalize()")
-    class Finalize {
+    @DisplayName("confirmSeason()")
+    class ConfirmSeason {
 
         @Test
         @DisplayName("시즌 종료 시 rank와 score가 확정된다")
-        void finalize_rank_score_확정() {
+        void confirmSeason_rank_score_확정() {
             Ranking ranking = createRanking();
 
-            ranking.finalize(3, new BigDecimal("22.1234"));
+            ranking.confirmSeason(3, new BigDecimal("22.1234"));
 
             assertThat(ranking.getRank()).isEqualTo(3);
             assertThat(ranking.getScore()).isEqualByComparingTo("22.1234");
         }
 
         @Test
-        @DisplayName("finalize 호출 후 lastUpdatedAt이 갱신된다")
-        void finalize_lastUpdatedAt_갱신() {
+        @DisplayName("confirmSeason 호출 후 lastUpdatedAt이 갱신된다")
+        void confirmSeason_lastUpdatedAt_갱신() {
             Ranking ranking = createRanking();
             LocalDateTime before = LocalDateTime.now().minusSeconds(1);
 
-            ranking.finalize(1, BigDecimal.TEN);
+            ranking.confirmSeason(1, BigDecimal.TEN);
 
             assertThat(ranking.getLastUpdatedAt()).isAfter(before);
         }
