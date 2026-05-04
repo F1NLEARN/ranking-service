@@ -3,18 +3,8 @@ spring:
     import: optional:configserver:http://finlearn-config-server:8888
   datasource:
     url: jdbc:postgresql://finlearn-postgres:5432/rankingdb
-    driver-class-name: org.postgresql.Driver
-    username: postgres
-    password: postgres
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: false
-  kafka:
-    bootstrap-servers: finlearn-kafka:9092
-    consumer:
-      group-id: ranking-service
-      auto-offset-reset: earliest
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
   data:
     redis:
       host: finlearn-redis
@@ -26,18 +16,6 @@ eureka:
   client:
     service-url:
       defaultZone: http://finlearn-eureka:8761/eureka/
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,prometheus
-  tracing:
-    sampling:
-      probability: 1.0
-  zipkin:
-    tracing:
-      endpoint: http://host.docker.internal:9411/api/v2/spans
 
 loki:
   url: http://host.docker.internal:3100/loki/api/v1/push
