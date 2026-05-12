@@ -48,6 +48,7 @@ public class RankingEventConsumer {
 
         } catch (Exception e) {
             log.error("[Kafka] investment.changed 처리 실패: {}", e.getMessage(), e);
+            throw new RuntimeException(e.getMessage(), e);
         }
     }
 
@@ -72,6 +73,7 @@ public class RankingEventConsumer {
 
         } catch (Exception e) {
             log.error("[Kafka] achievement.unlocked 처리 실패: {}", e.getMessage(), e);
+            throw new RuntimeException(e.getMessage(), e);
         }
     }
 
@@ -92,6 +94,7 @@ public class RankingEventConsumer {
             log.warn("[Kafka] season.started - 이미 초기화된 시즌 키 존재: {}", e.getMessage());
         } catch (Exception e) {
             log.error("[Kafka] season.started 처리 실패: {}", e.getMessage(), e);
+            throw new RuntimeException(e.getMessage(), e);
         }
     }
 
@@ -111,6 +114,7 @@ public class RankingEventConsumer {
             log.warn("[Kafka] season.ended - 이미 확정된 시즌, 무시: {}", e.getMessage());
         } catch (Exception e) {
             log.error("[Kafka] season.ended 처리 실패: {}", e.getMessage(), e);
+            throw new RuntimeException(e.getMessage(), e);
         }
     }
 
@@ -126,6 +130,7 @@ public class RankingEventConsumer {
 
         } catch (Exception e) {
             log.error("[Kafka] user.profile-updated 처리 실패: {}", e.getMessage(), e);
+            throw new RuntimeException(e.getMessage(), e);
         }
     }
 }
