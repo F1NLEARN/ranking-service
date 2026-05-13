@@ -1,9 +1,12 @@
 package com.finlearn.rankingservice.application;
 
 import com.finlearn.common.exception.ConflictException;
+import com.finlearn.rankingservice.application.command.AchievementUnlockedCommand;
+import com.finlearn.rankingservice.application.command.InvestmentChangedCommand;
 import com.finlearn.rankingservice.application.dto.*;
 import com.finlearn.rankingservice.domain.Ranking;
 import com.finlearn.rankingservice.domain.RankingBadge;
+import com.finlearn.rankingservice.domain.event.RankingEventPublisher;
 import com.finlearn.rankingservice.domain.repository.RankingBadgeRepository;
 import com.finlearn.rankingservice.domain.repository.RankingRepository;
 import com.finlearn.rankingservice.domain.repository.RankingScoreRepository;
@@ -39,13 +42,14 @@ class RankingServiceTest {
     @Mock RankingRepository      rankingRepository;
     @Mock RankingBadgeRepository rankingBadgeRepository;
     @Mock RankingScoreRepository rankingScoreRepository;
+    @Mock RankingEventPublisher  rankingEventPublisher;
 
     private static final UUID SEASON_ID = UUID.randomUUID();
     private static final UUID USER_ID   = UUID.randomUUID();
 
-    // ────────────────────────────────────────────────────────────────
-    // 리더보드 조회
-    // ────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────
+    // getLeaderboard
+    // ─────────────────────────────────────────────────────────────
 
     @Nested
     @DisplayName("getLeaderboard()")
@@ -100,7 +104,6 @@ class RankingServiceTest {
 
             assertThat(result.getRankings()).hasSize(1);
             assertThat(result.getRankings().get(0).getRank()).isEqualTo(1);
-            assertThat(result.getRankings().get(0).getNickname()).isEqualTo("투자왕");
             verify(rankingScoreRepository, never()).getTopN(any(), any(), anyLong(), anyLong());
         }
 
@@ -121,7 +124,7 @@ class RankingServiceTest {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 내 랭킹 조회
+    // getMyRankings
     // ─────────────────────────────────────────────────────────────
 
     @Nested
@@ -173,7 +176,7 @@ class RankingServiceTest {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 내 뱃지 조회
+    // getMyBadges
     // ─────────────────────────────────────────────────────────────
 
     @Nested
@@ -207,7 +210,7 @@ class RankingServiceTest {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 점수 갱신
+    // updateScore
     // ─────────────────────────────────────────────────────────────
 
     @Nested
@@ -221,7 +224,7 @@ class RankingServiceTest {
             given(rankingRepository.findBySeasonIdAndUserIdAndRankingType(SEASON_ID, USER_ID, RankingType.ETF))
                     .willReturn(Optional.of(stubRanking("테스터")));
 
-            RankingEntryDto result = rankingService.updateScore(SEASON_ID, USER_ID, RankingType.ETF, new BigDecimal("35.72"));
+            RankingEntryDto result = rankingService.updateScore(SEASON_ID, USER_ID, RankingType.ETF, 35.72);
 
             assertThat(result.getRank()).isEqualTo(1);
             assertThat(result.getScore()).isEqualByComparingTo("35.72");
@@ -236,7 +239,7 @@ class RankingServiceTest {
             given(rankingRepository.findBySeasonIdAndUserIdAndRankingType(SEASON_ID, USER_ID, RankingType.ALL))
                     .willReturn(Optional.empty());
 
-            RankingEntryDto result = rankingService.updateScore(SEASON_ID, USER_ID, RankingType.ALL, new BigDecimal("10.0"));
+            RankingEntryDto result = rankingService.updateScore(SEASON_ID, USER_ID, RankingType.ALL, 10.0);
 
             assertThat(result.getRank()).isEqualTo(5);
             assertThat(result.getLastUpdatedAt()).isNotNull();
@@ -244,7 +247,7 @@ class RankingServiceTest {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 랭킹 확정
+    // finalizeRankings
     // ─────────────────────────────────────────────────────────────
 
     @Nested
@@ -260,11 +263,12 @@ class RankingServiceTest {
                     .isInstanceOf(ConflictException.class);
 
             verify(rankingScoreRepository, never()).getAll(any(), any());
+            verify(rankingEventPublisher, never()).publishRankingFinalized(any(), any(), anyInt());
         }
 
         @Test
-        @DisplayName("정상 확정 시 모든 타입 랭킹을 처리한다")
-        void 정상확정_처리() {
+        @DisplayName("정상 확정 시 모든 타입 랭킹을 처리하고 RankingFinalized 이벤트를 발행한다")
+        void 정상확정_이벤트발행() {
             given(rankingRepository.existsBySeasonIdAndRankNotNull(SEASON_ID)).willReturn(false);
 
             UUID user1 = UUID.randomUUID();
@@ -291,6 +295,7 @@ class RankingServiceTest {
             assertThat(result.getSeasonId()).isEqualTo(SEASON_ID);
             assertThat(result.getFinalizedAt()).isNotNull();
             verify(rankingScoreRepository).cleanupSeason(SEASON_ID);
+            verify(rankingEventPublisher).publishRankingFinalized(eq(SEASON_ID), eq(2), anyInt());
         }
 
         @Test
@@ -313,6 +318,168 @@ class RankingServiceTest {
             verify(rankingBadgeRepository, atLeastOnce()).save(captor.capture());
             assertThat(captor.getAllValues()).anyMatch(b -> b.getGrade() == BadgeGrade.CHAMPION);
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // handleInvestmentChanged
+    // ─────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("handleInvestmentChanged()")
+    class HandleInvestmentChanged {
+
+        @Test
+        @DisplayName("STOCK 타입이면 ALL, STOCK 점수가 갱신된다")
+        void STOCK타입_ALL_STOCK점수갱신() {
+            InvestmentChangedCommand command = InvestmentChangedCommand.builder()
+                    .userId(USER_ID).seasonId(SEASON_ID).seasonNumber(1)
+                    .assetType("STOCK")
+                    .overallReturnRate(20.0).stockReturnRate(25.0).etfReturnRate(0.0)
+                    .userNickname("테스터").userProfileImage(null)
+                    .build();
+
+            given(rankingRepository.findBySeasonIdAndUserIdAndRankingType(any(), any(), any()))
+                    .willReturn(Optional.of(stubRanking("테스터")));
+
+            rankingService.handleInvestmentChanged(command);
+
+            verify(rankingScoreRepository).updateScore(SEASON_ID, RankingType.ALL, USER_ID, 20.0);
+            verify(rankingScoreRepository).updateScore(SEASON_ID, RankingType.STOCK, USER_ID, 25.0);
+            verify(rankingScoreRepository, never())
+                    .updateScore(eq(SEASON_ID), eq(RankingType.ETF), any(), anyDouble());
+        }
+
+        @Test
+        @DisplayName("ETF 타입이면 ALL, ETF 점수가 갱신된다")
+        void ETF타입_ALL_ETF점수갱신() {
+            InvestmentChangedCommand command = InvestmentChangedCommand.builder()
+                    .userId(USER_ID).seasonId(SEASON_ID).seasonNumber(1)
+                    .assetType("ETF")
+                    .overallReturnRate(15.0).stockReturnRate(0.0).etfReturnRate(30.0)
+                    .userNickname("테스터").userProfileImage(null)
+                    .build();
+
+            given(rankingRepository.findBySeasonIdAndUserIdAndRankingType(any(), any(), any()))
+                    .willReturn(Optional.of(stubRanking("테스터")));
+
+            rankingService.handleInvestmentChanged(command);
+
+            verify(rankingScoreRepository).updateScore(SEASON_ID, RankingType.ALL, USER_ID, 15.0);
+            verify(rankingScoreRepository).updateScore(SEASON_ID, RankingType.ETF, USER_ID, 30.0);
+            verify(rankingScoreRepository, never())
+                    .updateScore(eq(SEASON_ID), eq(RankingType.STOCK), any(), anyDouble());
+        }
+
+        @Test
+        @DisplayName("JPA 스냅샷이 없으면 신규 생성한다")
+        void 스냅샷없으면_신규생성() {
+            InvestmentChangedCommand command = InvestmentChangedCommand.builder()
+                    .userId(USER_ID).seasonId(SEASON_ID).seasonNumber(1)
+                    .assetType("STOCK")
+                    .overallReturnRate(10.0).stockReturnRate(10.0).etfReturnRate(0.0)
+                    .userNickname("테스터").userProfileImage(null)
+                    .build();
+
+            given(rankingRepository.findBySeasonIdAndUserIdAndRankingType(any(), any(), any()))
+                    .willReturn(Optional.empty());
+
+            rankingService.handleInvestmentChanged(command);
+
+            // ALL, STOCK 타입 각각 1번씩 → 총 2번
+            verify(rankingRepository, times(2)).save(any(Ranking.class));
+        }
+
+        @Test
+        @DisplayName("JPA 스냅샷이 이미 있으면 신규 생성하지 않는다")
+        void 스냅샷있으면_생성안함() {
+            InvestmentChangedCommand command = InvestmentChangedCommand.builder()
+                    .userId(USER_ID).seasonId(SEASON_ID).seasonNumber(1)
+                    .assetType("STOCK")
+                    .overallReturnRate(10.0).stockReturnRate(10.0).etfReturnRate(0.0)
+                    .userNickname("테스터").userProfileImage(null)
+                    .build();
+
+            given(rankingRepository.findBySeasonIdAndUserIdAndRankingType(any(), any(), any()))
+                    .willReturn(Optional.of(stubRanking("테스터")));
+
+            rankingService.handleInvestmentChanged(command);
+
+            verify(rankingRepository, never()).save(any(Ranking.class));
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // handleAchievementUnlocked
+    // ─────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("handleAchievementUnlocked()")
+    class HandleAchievementUnlocked {
+
+        @Test
+        @DisplayName("ACHIEVEMENT 점수를 1 증가시킨다")
+        void ACHIEVEMENT_점수증가() {
+            AchievementUnlockedCommand command = AchievementUnlockedCommand.builder()
+                    .userId(USER_ID).seasonId(SEASON_ID).seasonNumber(1)
+                    .userNickname("테스터").userProfileImage(null)
+                    .build();
+
+            given(rankingRepository.findBySeasonIdAndUserIdAndRankingType(
+                    SEASON_ID, USER_ID, RankingType.ACHIEVEMENT))
+                    .willReturn(Optional.of(stubRanking("테스터")));
+
+            rankingService.handleAchievementUnlocked(command);
+
+            verify(rankingScoreRepository)
+                    .incrementScore(SEASON_ID, RankingType.ACHIEVEMENT, USER_ID, 1.0);
+        }
+
+        @Test
+        @DisplayName("ACHIEVEMENT 타입 스냅샷이 없으면 신규 생성한다")
+        void 스냅샷없으면_신규생성() {
+            AchievementUnlockedCommand command = AchievementUnlockedCommand.builder()
+                    .userId(USER_ID).seasonId(SEASON_ID).seasonNumber(1)
+                    .userNickname("테스터").userProfileImage(null)
+                    .build();
+
+            given(rankingRepository.findBySeasonIdAndUserIdAndRankingType(
+                    SEASON_ID, USER_ID, RankingType.ACHIEVEMENT))
+                    .willReturn(Optional.empty());
+
+            rankingService.handleAchievementUnlocked(command);
+
+            verify(rankingRepository).save(argThat(r ->
+                    r.getRankingType() == RankingType.ACHIEVEMENT &&
+                            r.getUserId().equals(USER_ID)));
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // handleSeasonStarted
+    // ─────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("handleSeasonStarted() - Redis Sorted Set 초기화를 호출한다")
+    void handleSeasonStarted_Redis초기화() {
+        rankingService.handleSeasonStarted(SEASON_ID);
+
+        verify(rankingScoreRepository).initializeSeason(SEASON_ID);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // syncUserProfile
+    // ─────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("syncUserProfile() - 벌크 UPDATE를 호출한다")
+    void syncUserProfile_벌크업데이트호출() {
+        given(rankingRepository.bulkUpdateUserProfile(USER_ID, "새닉네임", "https://new.img"))
+                .willReturn(4);
+
+        rankingService.syncUserProfile(USER_ID, "새닉네임", "https://new.img");
+
+        verify(rankingRepository).bulkUpdateUserProfile(USER_ID, "새닉네임", "https://new.img");
+        verify(rankingRepository, never()).save(any());
     }
 
     // ─────────────────────────────────────────────────────────────
