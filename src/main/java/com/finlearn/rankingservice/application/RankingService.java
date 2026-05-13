@@ -15,6 +15,7 @@ import com.finlearn.rankingservice.domain.vo.BadgeGrade;
 import com.finlearn.rankingservice.domain.vo.RankingType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -339,14 +340,18 @@ public class RankingService {
     private void createSnapshotIfAbsent(UUID seasonId, Integer seasonNumber, UUID userId,
                                         String nickname, String profileImage, RankingType type) {
         if (rankingRepository.findBySeasonIdAndUserIdAndRankingType(seasonId, userId, type).isEmpty()) {
-            Ranking ranking = Ranking.create(
-                    seasonId,
-                    seasonNumber != null ? seasonNumber : 0,
-                    userId,
-                    nickname != null ? nickname : "알 수 없음",
-                    profileImage,
-                    type);
-            rankingRepository.save(ranking);
+            try {
+                Ranking ranking = Ranking.create(
+                        seasonId,
+                        seasonNumber != null ? seasonNumber : 0,
+                        userId,
+                        nickname != null ? nickname : "알 수 없음",
+                        profileImage,
+                        type);
+                rankingRepository.save(ranking);
+            } catch (DataIntegrityViolationException e) {
+                log.debug("[RankingService] 동시 INSERT 충돌 무시 (UNIQUE 위반): userId={}, type={}", userId, type);
+            }
         }
     }
 }
