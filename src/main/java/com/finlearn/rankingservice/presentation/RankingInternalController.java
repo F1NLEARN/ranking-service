@@ -28,7 +28,7 @@ public class RankingInternalController {
             @Valid @RequestBody UpdateRankingScoreRequest request
     ) {
         RankingEntryDto dto = rankingService.updateScore(
-                seasonId, request.getUserId(), request.getRankingType(), request.getScore());
+                seasonId, request.getUserId(), request.getRankingType(), request.getScore().doubleValue());
         return RankingEntryResponse.from(dto);
     }
 
