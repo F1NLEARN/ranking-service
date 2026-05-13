@@ -1,17 +1,17 @@
-package com.finlearn.rankingservice.application.dto;
+package com.finlearn.rankingservice.presentation.dto.response;
 
 import com.finlearn.rankingservice.domain.vo.RankingType;
-import lombok.Builder;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import java.util.List;
 import java.util.UUID;
 
 @Getter
-@Builder
-public class LeaderboardDto {
+@AllArgsConstructor
+public class RankingListResponse {
     private UUID seasonId;
     private RankingType rankingType;
-    private List<RankingEntryDto> rankings;
+    private List<RankingEntryResponse> rankings;
     private long totalCount;
     private int page;
     private int size;

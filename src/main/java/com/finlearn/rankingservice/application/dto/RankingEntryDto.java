@@ -10,7 +10,6 @@ import java.util.UUID;
 @Getter
 @Builder
 public class RankingEntryDto {
-
     private Integer rank;
     private UUID userId;
     private String nickname;

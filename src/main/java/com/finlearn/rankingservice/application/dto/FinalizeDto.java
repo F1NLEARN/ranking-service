@@ -8,7 +8,6 @@ import java.util.UUID;
 @Getter
 @AllArgsConstructor
 public class FinalizeDto {
-
     private UUID seasonId;
     private int badgeIssuedCount;
     private LocalDateTime finalizedAt;

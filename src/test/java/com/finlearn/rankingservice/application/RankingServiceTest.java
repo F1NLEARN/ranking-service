@@ -450,7 +450,7 @@ class RankingServiceTest {
 
             verify(rankingRepository).save(argThat(r ->
                     r.getRankingType() == RankingType.ACHIEVEMENT &&
-                    r.getUserId().equals(USER_ID)));
+                            r.getUserId().equals(USER_ID)));
         }
     }
 

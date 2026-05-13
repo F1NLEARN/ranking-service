@@ -8,7 +8,6 @@ import java.util.UUID;
 @Getter
 @Builder
 public class MyRankingDto {
-
     private UUID seasonId;
     private UUID userId;
     private List<MyRankingEntryDto> rankings;
