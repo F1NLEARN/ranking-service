@@ -5,6 +5,7 @@ import com.finlearn.common.exception.ConflictException;
 import com.finlearn.rankingservice.application.RankingService;
 import com.finlearn.rankingservice.application.command.AchievementUnlockedCommand;
 import com.finlearn.rankingservice.application.command.InvestmentChangedCommand;
+import com.finlearn.rankingservice.application.command.PortfolioSnapshotCommand;
 import com.finlearn.rankingservice.infrastructure.kafka.event.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +49,36 @@ public class RankingEventConsumer {
 
         } catch (Exception e) {
             log.error("[Kafka] investment.changed 처리 실패: {}", e.getMessage(), e);
+            throw new RuntimeException(e.getMessage(), e);
+        }
+    }
+
+    /**
+     * simulation.portfolio.snapshot → 유저별 최신 수익률 DB upsert
+     */
+    @KafkaListener(
+            topics = "${kafka.topics.simulation.portfolio.snapshot}",
+            groupId = "${spring.kafka.consumer.group-id}"
+    )
+    public void handlePortfolioSnapshot(Object payload) {
+        try {
+            PortfolioSnapshotEvent event = objectMapper.convertValue(payload, PortfolioSnapshotEvent.class);
+
+            PortfolioSnapshotCommand command = PortfolioSnapshotCommand.builder()
+                    .userId(event.getUserId())
+                    .seasonId(event.getSeasonId())
+                    .seasonNumber(event.getSeasonNumber())
+                    .overallReturnRate(event.getOverallReturnRate())
+                    .stockReturnRate(event.getStockReturnRate())
+                    .etfReturnRate(event.getEtfReturnRate())
+                    .userNickname(event.getUserNickname())
+                    .userProfileImage(event.getUserProfileImage())
+                    .build();
+
+            rankingService.handlePortfolioSnapshot(command);
+
+        } catch (Exception e) {
+            log.error("[Kafka] simulation.portfolio.snapshot 처리 실패: {}", e.getMessage(), e);
             throw new RuntimeException(e.getMessage(), e);
         }
     }
