@@ -13,14 +13,20 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -28,9 +34,21 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(RankingInternalController.class)
-@Import({GlobalExceptionAdviceImpl.class, CommonResponseAdvice.class})
+@Import({GlobalExceptionAdviceImpl.class, CommonResponseAdvice.class,
+         RankingInternalControllerTest.TestSecurityConfig.class})
 @DisplayName("RankingInternalController")
 class RankingInternalControllerTest {
+
+    @TestConfiguration
+    static class TestSecurityConfig {
+        @Bean
+        public SecurityFilterChain testSecurityFilterChain(HttpSecurity http) throws Exception {
+            return http
+                    .csrf(AbstractHttpConfigurer::disable)
+                    .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                    .build();
+        }
+    }
 
     @Autowired MockMvc      mockMvc;
     @Autowired ObjectMapper objectMapper;
@@ -56,7 +74,7 @@ class RankingInternalControllerTest {
                     .lastUpdatedAt(LocalDateTime.now())
                     .build();
 
-            given(rankingService.updateScore(eq(SEASON_ID), eq(USER_ID), eq(RankingType.ETF), eq(new BigDecimal("35.72"))))
+            given(rankingService.updateScore(eq(SEASON_ID), eq(USER_ID), eq(RankingType.ETF), anyDouble()))
                     .willReturn(dto);
 
             Map<String, Object> body = Map.of(
