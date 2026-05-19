@@ -62,7 +62,7 @@ public class RankingEventConsumer {
             topics = "${kafka.topics.simulation.portfolio.snapshot}",
             groupId = "${spring.kafka.consumer.group-id}"
     )
-    public void handlePortfolioSnapshot(Object payload) {
+    public void handlePortfolioSnapshot(Map<String, Object> payload) {
         try {
             PortfolioSnapshotEvent event = objectMapper.convertValue(payload, PortfolioSnapshotEvent.class);
 

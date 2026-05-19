@@ -423,7 +423,8 @@ public class RankingService {
      */
     private void createSnapshotIfAbsent(UUID seasonId, Integer seasonNumber, UUID userId,
                                         String nickname, String profileImage, RankingType type) {
-        if (rankingRepository.findBySeasonIdAndUserIdAndRankingType(seasonId, userId, type).isEmpty()) {
+        Optional<Ranking> existing = rankingRepository.findBySeasonIdAndUserIdAndRankingType(seasonId, userId, type);
+        if (existing.isEmpty()) {
             try {
                 Ranking ranking = Ranking.create(
                         seasonId,
@@ -436,6 +437,9 @@ public class RankingService {
             } catch (DataIntegrityViolationException e) {
                 log.debug("[RankingService] 동시 INSERT 충돌 무시 (UNIQUE 위반): userId={}, type={}", userId, type);
             }
+        } else if (nickname != null && "알 수 없음".equals(existing.get().getUserNickname())) {
+            existing.get().syncProfile(nickname, profileImage);
+            rankingRepository.save(existing.get());
         }
     }
 }
