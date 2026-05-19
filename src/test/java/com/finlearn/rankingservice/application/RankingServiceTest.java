@@ -7,6 +7,7 @@ import com.finlearn.rankingservice.application.dto.*;
 import com.finlearn.rankingservice.domain.Ranking;
 import com.finlearn.rankingservice.domain.RankingBadge;
 import com.finlearn.rankingservice.domain.event.RankingEventPublisher;
+import com.finlearn.rankingservice.domain.repository.PortfolioSnapshotRepository;
 import com.finlearn.rankingservice.domain.repository.RankingBadgeRepository;
 import com.finlearn.rankingservice.domain.repository.RankingRepository;
 import com.finlearn.rankingservice.domain.repository.RankingScoreRepository;
@@ -39,10 +40,11 @@ class RankingServiceTest {
 
     @InjectMocks RankingService rankingService;
 
-    @Mock RankingRepository      rankingRepository;
-    @Mock RankingBadgeRepository rankingBadgeRepository;
-    @Mock RankingScoreRepository rankingScoreRepository;
-    @Mock RankingEventPublisher  rankingEventPublisher;
+    @Mock RankingRepository          rankingRepository;
+    @Mock RankingBadgeRepository     rankingBadgeRepository;
+    @Mock RankingScoreRepository     rankingScoreRepository;
+    @Mock RankingEventPublisher      rankingEventPublisher;
+    @Mock PortfolioSnapshotRepository portfolioSnapshotRepository;
 
     private static final UUID SEASON_ID = UUID.randomUUID();
     private static final UUID USER_ID   = UUID.randomUUID();

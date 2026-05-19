@@ -3,6 +3,9 @@ package com.finlearn.rankingservice.application;
 import com.finlearn.common.exception.ConflictException;
 import com.finlearn.rankingservice.application.command.AchievementUnlockedCommand;
 import com.finlearn.rankingservice.application.command.InvestmentChangedCommand;
+import com.finlearn.rankingservice.application.command.PortfolioSnapshotCommand;
+import com.finlearn.rankingservice.domain.PortfolioSnapshot;
+import com.finlearn.rankingservice.domain.repository.PortfolioSnapshotRepository;
 import com.finlearn.rankingservice.application.dto.*;
 import com.finlearn.rankingservice.domain.Ranking;
 import com.finlearn.rankingservice.domain.RankingBadge;
@@ -33,6 +36,7 @@ public class RankingService {
     private final RankingBadgeRepository rankingBadgeRepository;
     private final RankingScoreRepository rankingScoreRepository;
     private final RankingEventPublisher rankingEventPublisher;
+    private final PortfolioSnapshotRepository portfolioSnapshotRepository;
 
     /**
      * 시즌 랭킹 조회
@@ -71,6 +75,16 @@ public class RankingService {
             return rankingBadgeRepository.findAllByUserIdAndSeasonId(userId, seasonId);
         }
         return rankingBadgeRepository.findAllByUserIdOrderByPaidAtDesc(userId);
+    }
+
+    /**
+     * 특정 시즌 유저의 ALL 랭킹 확정 순위 조회: season-service 시드머니 산정용
+     * 랭킹 확정 이후에만 rank 존재, 이전에는 null 반환
+     */
+    public Integer getUserAllRank(UUID seasonId, UUID userId) {
+        return rankingRepository.findBySeasonIdAndUserIdAndRankingType(seasonId, userId, RankingType.ALL)
+                .map(Ranking::getRank)
+                .orElse(null);
     }
 
     /** 랭킹 점수 직접 갱신 (simulation-service 내부 호출) */
@@ -172,6 +186,76 @@ public class RankingService {
             createSnapshotIfAbsent(seasonId, command.getSeasonNumber(), userId,
                     command.getUserNickname(), command.getUserProfileImage(), RankingType.ETF);
         }
+    }
+
+    /**
+     * simulation.portfolio.snapshot 수신
+     * - portfolio_snapshots 테이블에 유저별 최신 수익률 upsert
+     * - Redis 갱신은 1시간 스케줄러가 담당
+     */
+    @Transactional
+    public void handlePortfolioSnapshot(PortfolioSnapshotCommand command) {
+        UUID userId = command.getUserId();
+        UUID seasonId = command.getSeasonId();
+
+        portfolioSnapshotRepository.findByUserIdAndSeasonId(userId, seasonId)
+                .ifPresentOrElse(
+                        snapshot -> snapshot.updateRates(
+                                command.getOverallReturnRate(),
+                                command.getStockReturnRate(),
+                                command.getEtfReturnRate()),
+                        () -> portfolioSnapshotRepository.save(PortfolioSnapshot.builder()
+                                .userId(userId)
+                                .seasonId(seasonId)
+                                .seasonNumber(command.getSeasonNumber() != null ? command.getSeasonNumber() : 0)
+                                .overallReturnRate(command.getOverallReturnRate())
+                                .stockReturnRate(command.getStockReturnRate())
+                                .etfReturnRate(command.getEtfReturnRate())
+                                .userNickname(command.getUserNickname())
+                                .userProfileImage(command.getUserProfileImage())
+                                .build())
+                );
+
+        // JPA 스냅샷 초기화
+        createSnapshotIfAbsent(seasonId, command.getSeasonNumber(), userId,
+                command.getUserNickname(), command.getUserProfileImage(), RankingType.ALL);
+        createSnapshotIfAbsent(seasonId, command.getSeasonNumber(), userId,
+                command.getUserNickname(), command.getUserProfileImage(), RankingType.STOCK);
+        createSnapshotIfAbsent(seasonId, command.getSeasonNumber(), userId,
+                command.getUserNickname(), command.getUserProfileImage(), RankingType.ETF);
+
+        log.debug("[RankingService] 포트폴리오 스냅샷 저장: userId={}, overall={}",
+                userId, command.getOverallReturnRate());
+    }
+
+    /**
+     * 1시간 주기 Redis 점수 갱신
+     * portfolio_snapshots 테이블의 최신값으로 Redis Sorted Set을 일괄 갱신
+     */
+    @Transactional(readOnly = true)
+    public void refreshRankingScores(UUID seasonId) {
+        if (rankingRepository.existsBySeasonIdAndRankNotNull(seasonId)) {
+            log.debug("[RankingService] 이미 확정된 시즌 갱신 건너뜀: seasonId={}", seasonId);
+            return;
+        }
+        List<PortfolioSnapshot> snapshots = portfolioSnapshotRepository.findAllBySeasonId(seasonId);
+        for (PortfolioSnapshot snap : snapshots) {
+            UUID userId = snap.getUserId();
+            rankingScoreRepository.updateScore(seasonId, RankingType.ALL,   userId, snap.getOverallReturnRate());
+            rankingScoreRepository.updateScore(seasonId, RankingType.STOCK, userId, snap.getStockReturnRate());
+            rankingScoreRepository.updateScore(seasonId, RankingType.ETF,   userId, snap.getEtfReturnRate());
+        }
+        log.info("[RankingService] Redis 점수 갱신 완료: seasonId={}, count={}", seasonId, snapshots.size());
+    }
+
+    /**
+     * 스냅샷이 존재하는 모든 미확정 시즌의 Redis 점수 갱신
+     * 스케줄러 진입점
+     */
+    @Transactional(readOnly = true)
+    public void refreshAllActiveSeasonScores() {
+        List<UUID> seasonIds = portfolioSnapshotRepository.findDistinctSeasonIds();
+        seasonIds.forEach(this::refreshRankingScores);
     }
 
     /**
