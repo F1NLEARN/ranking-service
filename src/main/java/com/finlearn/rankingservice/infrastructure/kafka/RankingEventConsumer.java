@@ -11,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+
 /**
  * 랭킹 도메인 Kafka 이벤트 컨슈머
  */
@@ -27,7 +29,7 @@ public class RankingEventConsumer {
             topics = "${kafka.topics.investment.changed}",
             groupId = "${spring.kafka.consumer.group-id}"
     )
-    public void handleInvestmentChanged(Object payload) {
+    public void handleInvestmentChanged(Map<String, Object> payload) {
         try {
             InvestmentChangedEvent event = objectMapper.convertValue(payload, InvestmentChangedEvent.class);
 
@@ -57,7 +59,7 @@ public class RankingEventConsumer {
             topics = "${kafka.topics.achievement.unlocked}",
             groupId = "${spring.kafka.consumer.group-id}"
     )
-    public void handleAchievementUnlocked(Object payload) {
+    public void handleAchievementUnlocked(Map<String, Object> payload) {
         try {
             AchievementUnlockedEvent event = objectMapper.convertValue(payload, AchievementUnlockedEvent.class);
 
@@ -85,7 +87,7 @@ public class RankingEventConsumer {
             topics = "${kafka.topics.season.started}",
             groupId = "${spring.kafka.consumer.group-id}"
     )
-    public void handleSeasonStarted(Object payload) {
+    public void handleSeasonStarted(Map<String, Object> payload) {
         try {
             SeasonStartedEvent event = objectMapper.convertValue(payload, SeasonStartedEvent.class);
             rankingService.handleSeasonStarted(event.getSeasonId());
@@ -105,7 +107,7 @@ public class RankingEventConsumer {
             topics = "${kafka.topics.season.ended}",
             groupId = "${spring.kafka.consumer.group-id}"
     )
-    public void handleSeasonEnded(Object payload) {
+    public void handleSeasonEnded(Map<String, Object> payload) {
         try {
             SeasonEndedEvent event = objectMapper.convertValue(payload, SeasonEndedEvent.class);
             rankingService.finalizeRankings(event.getSeasonId(), event.getSeasonNumber());
@@ -123,7 +125,7 @@ public class RankingEventConsumer {
             topics = "${kafka.topics.user.updated}",
             groupId = "${spring.kafka.consumer.group-id}"
     )
-    public void handleUserProfileUpdated(Object payload) {
+    public void handleUserProfileUpdated(Map<String, Object> payload) {
         try {
             UserProfileUpdatedEvent event = objectMapper.convertValue(payload, UserProfileUpdatedEvent.class);
             rankingService.syncUserProfile(event.getUserId(), event.getNickname(), event.getProfileImage());
