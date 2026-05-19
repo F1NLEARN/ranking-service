@@ -7,8 +7,8 @@ spring:
     password: ${DB_PASSWORD:postgres}
   data:
     redis:
-      host: finlearn-redis
-      port: 6379
+      host: ${REDIS_HOST:finlearn-redis}
+      port: ${REDIS_PORT:6379}
 
 eureka:
   instance:
