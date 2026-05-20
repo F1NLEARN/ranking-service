@@ -191,7 +191,7 @@ public class RankingService {
     /**
      * simulation.portfolio.snapshot 수신
      * - portfolio_snapshots 테이블에 유저별 최신 수익률 upsert
-     * - Redis 갱신은 1시간 스케줄러가 담당
+     * - Redis 점수 즉시 갱신 (ALL, STOCK, ETF)
      */
     @Transactional
     public void handlePortfolioSnapshot(PortfolioSnapshotCommand command) {
@@ -216,15 +216,20 @@ public class RankingService {
                                 .build())
                 );
 
+        // Redis 점수 즉시 갱신
+        rankingScoreRepository.updateScore(seasonId, RankingType.ALL, userId, command.getOverallReturnRate());
+        rankingScoreRepository.updateScore(seasonId, RankingType.STOCK, userId, command.getStockReturnRate());
+        rankingScoreRepository.updateScore(seasonId, RankingType.ETF, userId, command.getEtfReturnRate());
+
         // JPA 스냅샷 초기화
         createSnapshotIfAbsent(seasonId, command.getSeasonNumber(), userId,
                 command.getUserNickname(), command.getUserProfileImage(), RankingType.ALL);
         createSnapshotIfAbsent(seasonId, command.getSeasonNumber(), userId,
-                command.getUserNickname(), command.getUserProfileImage(), RankingType.STOCK);
-        createSnapshotIfAbsent(seasonId, command.getSeasonNumber(), userId,
                 command.getUserNickname(), command.getUserProfileImage(), RankingType.ETF);
+        createSnapshotIfAbsent(seasonId, command.getSeasonNumber(), userId,
+                command.getUserNickname(), command.getUserProfileImage(), RankingType.STOCK);
 
-        log.debug("[RankingService] 포트폴리오 스냅샷 저장: userId={}, overall={}",
+        log.debug("[RankingService] 포트폴리오 스냅샷 저장 및 Redis 갱신: userId={}, overall={}",
                 userId, command.getOverallReturnRate());
     }
 
